@@ -27,6 +27,7 @@ const { values: args } = parseArgs({
     "job-id":           { type: "string", default: "" },   // MJ jobId for actions
     "upscale-type":     { type: "string", default: "0" },  // 0=Subtle, 1=Creative
     "variation-type":   { type: "string", default: "0" },  // 0=Subtle, 1=Strong
+    mode:               { type: "string", default: "turbo" }, // turbo | fast | relax
     seed:               { type: "string", default: "" },
   },
   strict: false,
@@ -42,6 +43,7 @@ const INDEX          = parseInt(args["index"], 10) || 1;
 const JOB_ID         = args["job-id"];
 const UPSCALE_TYPE   = parseInt(args["upscale-type"], 10) || 0;
 const VARIATION_TYPE = parseInt(args["variation-type"], 10) || 0;
+const MODE           = args["mode"] || "turbo";  // turbo (~10-20s), fast (~30-60s), relax (free but slow)
 const SEED           = args["seed"] ? parseInt(args["seed"], 10) : undefined;
 
 // ── Environment variables ──────────────────────────────────────────────────
@@ -229,8 +231,16 @@ async function generateMidjourney() {
   if (AR && AR !== "1:1") {
     mjPrompt += ` --ar ${AR}`;
   }
+  // Append speed mode flag
+  if (MODE === "turbo") {
+    mjPrompt += " --turbo";
+  } else if (MODE === "fast") {
+    mjPrompt += " --fast";
+  } else if (MODE === "relax") {
+    mjPrompt += " --relax";
+  }
 
-  process.stderr.write(`[MJ] Submitting imagine via Legnext.ai: "${mjPrompt}"\n`);
+  process.stderr.write(`[MJ] Submitting imagine via Legnext.ai (mode=${MODE}): "${mjPrompt}"\n`);
   const res = await legnextRequest("POST", "/diffusion", {
     text: mjPrompt,
   });

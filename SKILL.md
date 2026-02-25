@@ -68,6 +68,7 @@ node {baseDir}/generate.js \
 - `--aspect-ratio`: Output aspect ratio, e.g. `16:9`, `1:1`, `9:16`, `4:3`, `3:4` (default: `1:1`)
 - `--num-images`: Number of images to generate, 1-4 (default: `1`, Midjourney always returns 4)
 - `--negative-prompt`: Things to avoid in the image (not supported by Midjourney)
+- `--mode`: Midjourney speed mode: `turbo` (default, ~10-20s, requires Pro/Mega plan), `fast` (~30-60s), `relax` (free but slow)
 
 **Example:**
 ```bash
@@ -80,7 +81,7 @@ node {baseDir}/generate.js \
 
 ### Midjourney-Specific Notes
 
-Midjourney is powered by **Legnext.ai** (faster and more stable than TTAPI). The `--aspect-ratio` is automatically appended to the prompt as `--ar <ratio>`. The model always generates 4 images in a grid. After generation, you can:
+Midjourney is powered by **Legnext.ai** (faster and more stable than TTAPI). **Turbo mode is enabled by default** (`--turbo`), which reduces generation time to ~10-20 seconds (requires a Midjourney Pro or Mega plan). The `--aspect-ratio` is automatically appended to the prompt as `--ar <ratio>`. The model always generates 4 images in a grid. After generation, you can:
 
 - Ask the user if they want to **upscale** (U1-U4) or **create variations** (V1-V4) of any image.
 - Use `--action upscale --index <1-4> --job-id <id>` to upscale a specific image.
