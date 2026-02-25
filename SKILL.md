@@ -79,7 +79,60 @@ node {baseDir}/generate.js \
   --num-images 1
 ```
 
-### Midjourney-Specific Notes
+---
+
+## ⚡ Midjourney Async (Non-Blocking) Workflow — REQUIRED
+
+**IMPORTANT**: Midjourney generation takes 10-60 seconds. To avoid blocking the bot from responding to other messages, you MUST use the async workflow for ALL Midjourney requests.
+
+### Step 1 — Submit job (returns immediately, ~1s)
+
+```bash
+node {baseDir}/generate.js \
+  --model midjourney \
+  --prompt "<enhanced prompt>" \
+  --aspect-ratio 16:9 \
+  --async
+```
+
+This returns immediately with a `job_id`. Tell the user the job has been submitted and you'll notify them when done. **Do NOT wait — proceed to handle other messages.**
+
+Example response to user:
+> ✅ Midjourney 任务已提交！预计 10-20 秒完成（turbo 模式），我会在完成后立刻通知你。
+
+### Step 2 — Poll status (non-blocking, call repeatedly until done)
+
+```bash
+node {baseDir}/generate.js \
+  --model midjourney \
+  --poll \
+  --job-id <job_id>
+```
+
+Returns one of:
+- `status: "completed"` → job done, `imageUrl` and `imageUrls` are available
+- `status: "pending"` or `"processing"` → still running, poll again in ~10s
+- `status: "failed"` → job failed, show error to user
+
+### Step 3 — Notify user when completed
+
+When poll returns `status: "completed"`, send the image URL(s) to the user:
+> 🎨 你的图片生成完成了！[查看图片](imageUrl)
+> 
+> 想要放大哪张？(U1-U4) 或者创建变体？(V1-V4)
+
+### Polling Strategy
+
+Use the `exec` tool to poll every ~15 seconds. After submitting, you can:
+1. Tell the user the job is submitted
+2. Poll once after ~15 seconds
+3. If still pending, poll again after another 15 seconds
+4. Repeat up to ~5 times (total ~75 seconds max wait per poll cycle)
+5. If still not done, tell the user you'll check again later
+
+---
+
+## Midjourney-Specific Notes
 
 Midjourney is powered by **Legnext.ai** (faster and more stable than TTAPI). **Turbo mode is enabled by default** (`--turbo`), which reduces generation time to ~10-20 seconds (requires a Midjourney Pro or Mega plan). The `--aspect-ratio` is automatically appended to the prompt as `--ar <ratio>`. The model always generates 4 images in a grid. After generation, you can:
 
@@ -87,6 +140,7 @@ Midjourney is powered by **Legnext.ai** (faster and more stable than TTAPI). **T
 - Use `--action upscale --index <1-4> --job-id <id>` to upscale a specific image.
 - Use `--action variation --index <1-4> --job-id <id>` to create variations.
 - Use `--action reroll --job-id <id>` to re-generate with the same prompt.
+- Add `--async` to any action to make it non-blocking.
 
 **Upscale types** (via `--upscale-type`):
 - `0` = Subtle (default): Conservative enhancement, preserves original details. Best for photography.
@@ -97,27 +151,30 @@ Midjourney is powered by **Legnext.ai** (faster and more stable than TTAPI). **T
 - `1` = Strong: More dramatic variations with significant changes.
 
 ```bash
-# Upscale image 2 from a previous Midjourney generation (subtle)
+# Upscale image 2 from a previous Midjourney generation (async, non-blocking)
 node {baseDir}/generate.js \
   --model midjourney \
   --action upscale \
   --index 2 \
   --job-id <previous_job_id> \
-  --upscale-type 0
+  --upscale-type 0 \
+  --async
 
-# Create a strong variation of image 3
+# Create a strong variation of image 3 (async)
 node {baseDir}/generate.js \
   --model midjourney \
   --action variation \
   --index 3 \
   --job-id <previous_job_id> \
-  --variation-type 1
+  --variation-type 1 \
+  --async
 
-# Reroll (regenerate with same prompt)
+# Reroll (regenerate with same prompt, async)
 node {baseDir}/generate.js \
   --model midjourney \
   --action reroll \
-  --job-id <previous_job_id>
+  --job-id <previous_job_id> \
+  --async
 ```
 
 ### Prompt Enhancement Tips
@@ -160,16 +217,16 @@ Configure them in `~/.openclaw/openclaw.json`:
 ## Example Conversations
 
 **User**: "帮我画一只在雪山上的雪豹，电影感光效"
-**Action**: Select `midjourney`, enhance prompt to `"a majestic snow leopard on a snowy mountain peak, cinematic lighting, dramatic atmosphere, ultra detailed --ar 16:9 --v 7"`, run script.
+**Action**: Select `midjourney`, enhance prompt to `"a majestic snow leopard on a snowy mountain peak, cinematic lighting, dramatic atmosphere, ultra detailed --ar 16:9 --v 7"`, run script with `--async`. Tell user job submitted, then poll for result.
 
 **User**: "用 Flux 生成一张产品海报，白色背景，一瓶香水"
-**Action**: Select `flux-pro`, enhance prompt, run script with `--aspect-ratio 3:4`.
+**Action**: Select `flux-pro`, enhance prompt, run script with `--aspect-ratio 3:4`. (Flux is fast ~5s, no async needed)
 
 **User**: "快速生成一个草稿看看效果"
-**Action**: Select `flux-schnell` for fastest generation (<2 seconds).
+**Action**: Select `flux-schnell` for fastest generation (<2 seconds). No async needed.
 
 **User**: "帮我做一个 App 图标，扁平风格，蓝色系"
 **Action**: Select `recraft`, use prompt with `flat design icon, blue color scheme, minimal, vector style`.
 
 **User**: "把第2张图片放大"
-**Action**: Run with `--model midjourney --action upscale --index 2 --job-id <id>`.
+**Action**: Run with `--model midjourney --action upscale --index 2 --job-id <id> --async`, then poll for result.

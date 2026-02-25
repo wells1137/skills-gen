@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-02-25
+
+### Added
+- **Non-blocking async mode for Midjourney** (`--async` flag). Submit a job and return immediately with `job_id`, without waiting for completion. This prevents the bot from being blocked while waiting for image generation.
+- **Status poll mode** (`--poll --job-id <id>`). Check job status once and return immediately — no waiting. Returns `status: "completed"`, `"pending"`, `"processing"`, or `"failed"`.
+- Updated SKILL.md with mandatory async workflow documentation. All Midjourney requests should now use `--async` + periodic `--poll` to avoid blocking the bot.
+
+### Changed
+- `--async` flag is supported for all Midjourney actions: `imagine`, `upscale`, `variation`, `reroll`.
+
+---
+
 ## [1.2.0] - 2026-02-25
 
 ### Changed

@@ -8,6 +8,12 @@
  * Usage:
  *   node generate.js --model <id> --prompt "<text>" [options]
  *   node generate.js --model midjourney --action upscale --index 2 --job-id <id>
+ *
+ * Async (non-blocking) mode for Midjourney:
+ *   node generate.js --model midjourney --prompt "<text>" --async
+ *     → Submits job and returns immediately with job_id (does NOT wait)
+ *   node generate.js --model midjourney --poll --job-id <id>
+ *     → Checks job status once and returns immediately (no waiting)
  */
 
 import { fal } from "@fal-ai/client";
@@ -29,6 +35,8 @@ const { values: args } = parseArgs({
     "variation-type":   { type: "string", default: "0" },  // 0=Subtle, 1=Strong
     mode:               { type: "string", default: "turbo" }, // turbo | fast | relax
     seed:               { type: "string", default: "" },
+    async:              { type: "boolean", default: false }, // submit and return immediately
+    poll:               { type: "boolean", default: false }, // check status once, no wait
   },
   strict: false,
 });
@@ -45,6 +53,8 @@ const UPSCALE_TYPE   = parseInt(args["upscale-type"], 10) || 0;
 const VARIATION_TYPE = parseInt(args["variation-type"], 10) || 0;
 const MODE           = args["mode"] || "turbo";  // turbo (~10-20s), fast (~30-60s), relax (free but slow)
 const SEED           = args["seed"] ? parseInt(args["seed"], 10) : undefined;
+const ASYNC_MODE     = args["async"] === true;
+const POLL_MODE      = args["poll"] === true;
 
 // ── Environment variables ──────────────────────────────────────────────────
 const FAL_KEY      = process.env.FAL_KEY;
@@ -138,9 +148,55 @@ async function legnextPoll(jobId, maxWait = 300_000, interval = 5_000) {
   throw new Error(`Midjourney job ${jobId} timed out after ${maxWait / 1000}s`);
 }
 
+// ── Poll once (non-blocking status check) ─────────────────────────────────
+async function pollOnce(jobId) {
+  if (!LEGNEXT_KEY) error("LEGNEXT_KEY is not set.");
+  if (!jobId) error("--job-id is required for --poll mode.");
+
+  const res = await legnextRequest("GET", `/job/${jobId}`);
+  const status = res.status;
+
+  if (status === "completed") {
+    output({
+      success: true,
+      model: "midjourney",
+      jobId,
+      status: "completed",
+      imageUrl: res.output?.image_url || null,
+      imageUrls: res.output?.image_urls || [],
+      seed: res.output?.seed || null,
+      note: "4 images generated. Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
+    });
+  } else if (status === "failed") {
+    output({
+      success: false,
+      model: "midjourney",
+      jobId,
+      status: "failed",
+      error: res.error?.message || "Job failed",
+    });
+  } else {
+    // Still pending/processing
+    output({
+      success: true,
+      model: "midjourney",
+      jobId,
+      status: status || "pending",
+      pending: true,
+      message: `Job is still ${status || "pending"}. Check again in a few seconds.`,
+    });
+  }
+}
+
 // ── Midjourney via Legnext.ai ──────────────────────────────────────────────
 async function generateMidjourney() {
   if (!LEGNEXT_KEY) error("LEGNEXT_KEY is not set. Please configure it in your OpenClaw skill env.");
+
+  // ── Poll mode (non-blocking status check) ─────────────────────────────
+  if (POLL_MODE) {
+    await pollOnce(JOB_ID);
+    return;
+  }
 
   // ── Upscale action ─────────────────────────────────────────────────────
   if (ACTION === "upscale" && JOB_ID) {
@@ -153,6 +209,20 @@ async function generateMidjourney() {
     });
     if (!res.job_id) error("Legnext upscale submission failed", res);
     process.stderr.write(`[MJ] Upscale job submitted: ${res.job_id}\n`);
+
+    if (ASYNC_MODE) {
+      output({
+        success: true,
+        model: "midjourney",
+        action: "upscale",
+        jobId: res.job_id,
+        status: "submitted",
+        pending: true,
+        message: `Upscale job submitted (job_id: ${res.job_id}). Use --poll --job-id ${res.job_id} to check status.`,
+      });
+      return;
+    }
+
     const result = await legnextPoll(res.job_id);
     output({
       success: true,
@@ -177,6 +247,20 @@ async function generateMidjourney() {
     const res = await legnextRequest("POST", "/variation", body);
     if (!res.job_id) error("Legnext variation submission failed", res);
     process.stderr.write(`[MJ] Variation job submitted: ${res.job_id}\n`);
+
+    if (ASYNC_MODE) {
+      output({
+        success: true,
+        model: "midjourney",
+        action: "variation",
+        jobId: res.job_id,
+        status: "submitted",
+        pending: true,
+        message: `Variation job submitted (job_id: ${res.job_id}). Use --poll --job-id ${res.job_id} to check status.`,
+      });
+      return;
+    }
+
     const result = await legnextPoll(res.job_id);
     output({
       success: true,
@@ -195,6 +279,20 @@ async function generateMidjourney() {
     const res = await legnextRequest("POST", "/reroll", { jobId: JOB_ID });
     if (!res.job_id) error("Legnext reroll submission failed", res);
     process.stderr.write(`[MJ] Reroll job submitted: ${res.job_id}\n`);
+
+    if (ASYNC_MODE) {
+      output({
+        success: true,
+        model: "midjourney",
+        action: "reroll",
+        jobId: res.job_id,
+        status: "submitted",
+        pending: true,
+        message: `Reroll job submitted (job_id: ${res.job_id}). Use --poll --job-id ${res.job_id} to check status.`,
+      });
+      return;
+    }
+
     const result = await legnextPoll(res.job_id);
     output({
       success: true,
@@ -249,6 +347,22 @@ async function generateMidjourney() {
   const jobId = res.job_id;
   process.stderr.write(`[MJ] Job submitted: ${jobId}\n`);
 
+  // ── Async mode: return immediately after submission ────────────────────
+  if (ASYNC_MODE) {
+    output({
+      success: true,
+      model: "midjourney",
+      provider: "legnext.ai",
+      jobId,
+      status: "submitted",
+      pending: true,
+      prompt: mjPrompt,
+      message: `✅ Midjourney job submitted! job_id: ${jobId}\n\nGeneration takes ~10-20s (turbo) or ~30-60s (fast). I'll notify you when it's done.\n\nTo check manually: node generate.js --model midjourney --poll --job-id ${jobId}`,
+    });
+    return;
+  }
+
+  // ── Sync mode: wait for completion (default, may block Bot) ───────────
   const result = await legnextPoll(jobId);
 
   output({
