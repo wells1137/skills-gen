@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "playwright-mcp": {
+      "version": "1.0.0",
+      "installedAt": 1772006713848
+    },
+    "openclaw-mcp-plugin": {
+      "version": "0.1.1",
+      "installedAt": 1772006722059
+    },
+    "mcp-hass": {
+      "version": "1.0.1",
+      "installedAt": 1772006728403
+    }
+  }
+}

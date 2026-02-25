@@ -1,40 +1,83 @@
-# Skills Gen
+# skills-gen
 
-This repository contains a collection of advanced AI generation skills and their backing services, designed for use with OpenClaw and other MCP-compatible agent platforms.
+A personal AI agent framework and skill collection for [OpenClaw](https://openclaw.ai) and MCP-compatible platforms. This repository contains the agent's soul, a library of skills, and the backing services that power them.
+
+---
+
+## Framework
+
+The `framework/` directory defines the agent's core identity and operating principles.
+
+| File | Purpose |
+|---|---|
+| `SOUL.md` | Who the agent is — personality, values, and working style |
+| `AGENTS.md` | How to boot up and behave in every session |
+| `BOOTSTRAP.md` | First-run initialization guide |
+| `HEARTBEAT.md` | Periodic background tasks |
+| `TOOLS.md` | Environment-specific tool notes (cameras, SSH hosts, etc.) |
+
+---
 
 ## Skills
 
-| Skill | Description | ClawHub Link |
+The `skills/` directory contains all agent skills, organized by capability.
+
+### Generation Skills
+
+| Skill | Description | ClawHub |
 |---|---|---|
-| 🎨 **image-gen** | Unified image generation skill supporting Midjourney, Flux, SDXL, Ideogram, and more. | `coming soon` |
-| 🎧 **audiomind** | Intelligent audio generation skill for TTS, music, SFX, and voice cloning, powered by 17+ models from ElevenLabs and fal.ai. | [audiomind](https://clawhub.ai/skills/audiomind) |
+| 🎨 **image-gen** | Unified image generation — Midjourney, Flux, SDXL, Ideogram, Recraft | [clawhub.ai/skills/image-gen](https://clawhub.ai/skills/image-gen) |
+| 🎧 **audiomind** | Intelligent audio dispatch — TTS, Music, SFX, Voice Clone (17+ models via ElevenLabs & fal.ai) | [clawhub.ai/skills/audiomind](https://clawhub.ai/skills/audiomind) |
+
+### Tool & Integration Skills
+
+| Skill | Description | ClawHub |
+|---|---|---|
+| 🏠 **mcp-hass** | Control Home Assistant smart home devices via MCP | — |
+| 🔌 **openclaw-mcp-plugin** | Connect any MCP server to your OpenClaw agent | — |
+| 🎭 **playwright-mcp** | Full browser automation via Playwright MCP | — |
+
+---
 
 ## Services
 
-This repository also contains the backing services that power the skills:
+The `services/` directory contains backend services that power the skills.
 
-- **`/services/audiomind-proxy`**: A Vercel-deployable proxy server that provides a unified API for all audio generation models and handles API key management, free trial counting, and Pro user validation.
+| Service | Description | Deployed At |
+|---|---|---|
+| **audiomind-proxy** | Vercel proxy for audiomind — handles API key management, free trial counting (100 uses), and Pro validation | [audiomind-proxy.vercel.app](https://audiomind-proxy.vercel.app) |
+
+---
 
 ## Structure
 
 ```
 /
+├── framework/              # Agent identity & operating principles
+│   ├── SOUL.md
+│   ├── AGENTS.md
+│   ├── BOOTSTRAP.md
+│   ├── HEARTBEAT.md
+│   └── TOOLS.md
 ├── skills/
-│   ├── image-gen/        # The image-gen skill (ClawHub format)
-│   │   ├── SKILL.md
-│   │   └── tools/
-│   │       └── generate.js
-│   └── audiomind/        # The audiomind skill (ClawHub format)
-│       ├── SKILL.md
-│       └── tools/
-│           └── start_server.sh
+│   ├── image-gen/          # Image generation skill
+│   ├── audiomind/          # Audio generation & dispatch skill
+│   ├── mcp-hass/           # Home Assistant MCP skill
+│   ├── openclaw-mcp-plugin/ # MCP integration plugin
+│   └── playwright-mcp/     # Browser automation skill
 └── services/
-    └── audiomind-proxy/    # The Vercel proxy service for audiomind
-        ├── api/
-        ├── package.json
-        └── vercel.json
+    └── audiomind-proxy/    # Vercel proxy service for audiomind
 ```
 
-## Contributing
+---
 
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+## Quick Start
+
+```bash
+# Install a skill via ClawHub
+npx clawhub@latest install audiomind
+npx clawhub@latest install image-gen
+
+# Or clone the full repo to use as your OpenClaw workspace
+git clone https://github.com/wells1137/skills-gen.git
+```
