@@ -1,0 +1,12 @@
+{
+  "name": "image-gen-proxy",
+  "version": "1.0.0",
+  "description": "Image-Gen Proxy — API gateway for the image-gen ClawHub skill. Wraps fal.ai and Legnext.ai (Midjourney) behind a single endpoint so users need zero API keys.",
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

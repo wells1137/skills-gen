@@ -13,7 +13,7 @@ This skill enables you to generate images using a variety of state-of-the-art AI
 - **Flux 1.1 Pro** (via fal.ai) — Best for photorealistic images and complex scenes.
 - **Flux Dev** (via fal.ai) — Fast, high-quality generation for general use.
 - **Flux Schnell** (via fal.ai) — Ultra-fast generation (<2s), great for quick drafts.
-- **SDXL Lightning** (via fal.ai) — Fast Stable Diffusion XL, great for stylized art.
+- **SDXL** (via fal.ai `fal-ai/fast-sdxl`) — Fastest SDXL endpoint, great for stylized art and LoRA support.
 - **Nano Banana Pro** (via fal.ai `fal-ai/nano-banana-pro`) — Google Gemini-powered image generation and editing.
 - **Ideogram v3** (via fal.ai) — Best for images with text, logos, and typography.
 - **Recraft v3** (via fal.ai) — Best for vector-style, icon, and design assets.
@@ -32,7 +32,7 @@ When the user does not specify a model, use this guide to pick the best one:
 | Quick draft, fast iteration (<2s) | Flux Schnell | `flux-schnell` |
 | Image with text, logo, poster, typography | Ideogram v3 | `ideogram` |
 | Vector art, icon, flat design, illustration | Recraft v3 | `recraft` |
-| Stylized anime, illustration, concept art | SDXL Lightning | `sdxl` |
+| Stylized anime, illustration, concept art | SDXL | `sdxl` |
 | Gemini-powered generation or editing | Nano Banana Pro | `nano-banana` |
 
 ---
@@ -197,6 +197,7 @@ This skill requires the following environment variables to be set in your OpenCl
 |---|---|---|
 | `FAL_KEY` | fal.ai API key (for Flux, SDXL, Nano Banana, Ideogram, Recraft) | https://fal.ai/dashboard/keys |
 | `LEGNEXT_KEY` | Legnext.ai API key (for Midjourney) | https://legnext.ai/dashboard |
+| `IMAGE_GEN_PROXY_URL` | (Optional) Proxy server URL — if set, no API keys needed | Deployed proxy URL |
 
 Configure them in `~/.openclaw/openclaw.json`:
 ```json
@@ -233,3 +234,50 @@ Configure them in `~/.openclaw/openclaw.json`:
 
 **User**: "把第2张图片放大"
 **Action**: Run with `--model midjourney --action upscale --index 2 --job-id <id> --async`, then poll for result.
+
+---
+
+## 🔌 Proxy Mode (Zero API Keys)
+
+If `IMAGE_GEN_PROXY_URL` is set (or `--proxy` flag is used), the skill routes all requests through a proxy server instead of calling fal.ai / Legnext.ai directly. This means **users don't need any API keys** — the proxy handles authentication server-side.
+
+### How It Works
+
+```
+User's Agent → generate.js --proxy → Image-Gen Proxy (Vercel) → fal.ai / Legnext.ai
+```
+
+### Usage
+
+```bash
+# Via environment variable (recommended — set once in OpenClaw config)
+IMAGE_GEN_PROXY_URL=https://your-proxy.vercel.app node {baseDir}/generate.js \
+  --model flux-schnell \
+  --prompt "a cute cat"
+
+# Via CLI flag
+node {baseDir}/generate.js \
+  --model flux-schnell \
+  --prompt "a cute cat" \
+  --proxy \
+  --proxy-url https://your-proxy.vercel.app
+```
+
+### Proxy Mode for Midjourney
+
+```bash
+# Submit
+node {baseDir}/generate.js --model midjourney --prompt "a dragon" --proxy --proxy-url https://your-proxy.vercel.app
+
+# Poll
+node {baseDir}/generate.js --model midjourney --poll --job-id <id> --proxy --proxy-url https://your-proxy.vercel.app
+```
+
+### Free Tier Limits (via Proxy)
+
+| Model Type | Free Generations per IP |
+|---|---|
+| fal.ai models (Flux, SDXL, Ideogram, etc.) | 50 |
+| Midjourney | 20 |
+
+After the free tier is exhausted, users receive a `402` response with upgrade instructions.
