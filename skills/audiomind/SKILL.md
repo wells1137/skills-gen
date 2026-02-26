@@ -1,6 +1,6 @@
 ---
 name: AudioMind
-version: 2.1.5
+version: 2.1.7
 author: "@wells1137"
 emoji: "🎧"
 tags:
