@@ -37,6 +37,8 @@ const { values: args } = parseArgs({
     seed:               { type: "string", default: "" },
     async:              { type: "boolean", default: false }, // submit and return immediately
     poll:               { type: "boolean", default: false }, // check status once, no wait
+    proxy:              { type: "boolean", default: false }, // use proxy server instead of direct API
+    "proxy-url":        { type: "string", default: "" },    // proxy server URL
   },
   strict: false,
 });
@@ -56,6 +58,9 @@ const SEED           = args["seed"] ? parseInt(args["seed"], 10) : undefined;
 const ASYNC_MODE     = args["async"] === true;
 const POLL_MODE      = args["poll"] === true;
 
+const PROXY_MODE   = args["proxy"] === true;
+const PROXY_URL    = args["proxy-url"] || process.env.IMAGE_GEN_PROXY_URL || "";
+
 // ── Environment variables ──────────────────────────────────────────────────
 const FAL_KEY      = process.env.FAL_KEY;
 const LEGNEXT_KEY  = process.env.LEGNEXT_KEY;
@@ -65,7 +70,7 @@ const FAL_MODELS = {
   "flux-pro":      "fal-ai/flux-pro/v1.1",
   "flux-dev":      "fal-ai/flux/dev",
   "flux-schnell":  "fal-ai/flux/schnell",
-  "sdxl":          "fal-ai/lightning-models/sdxl-lightning-4step",
+  "sdxl":          "fal-ai/fast-sdxl",
   "nano-banana":   "fal-ai/nano-banana-pro",
   "ideogram":      "fal-ai/ideogram/v3",
   "recraft":       "fal-ai/recraft-v3",
@@ -106,8 +111,64 @@ function error(msg, details) {
   console.error(JSON.stringify({ success: false, error: msg, details }, null, 2));
   process.exit(1);
 }
+// ── Proxy mode helpers ─────────────────────────────────────────────────────
+async function proxyRequest(endpoint, body) {
+  const baseUrl = PROXY_URL.replace(/\/$/, "");
+  const url = `${baseUrl}/api/${endpoint}`;
+  process.stderr.write(`[proxy] POST ${url}\n`);
 
-// ── Legnext.ai HTTP helper ─────────────────────────────────────────────────
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json();
+  if (!res.ok && !data.success) {
+    error(`Proxy error (${res.status}): ${data.error || "unknown"}`, data);
+  }
+  return data;
+}
+
+async function generateViaProxy() {
+  if (!PROXY_URL) error("--proxy-url or IMAGE_GEN_PROXY_URL is required when using --proxy mode.");
+
+  if (MODEL === "midjourney") {
+    // Poll mode
+    if (POLL_MODE) {
+      const data = await proxyRequest("midjourney", { action: "poll", job_id: JOB_ID });
+      output(data);
+      return;
+    }
+    // Upscale / Variation / Reroll / Describe
+    if (ACTION && JOB_ID) {
+      const body = { action: ACTION, job_id: JOB_ID, index: INDEX, type: ACTION === "upscale" ? UPSCALE_TYPE : VARIATION_TYPE };
+      if (ACTION === "variation" && PROMPT) body.remix_prompt = PROMPT;
+      const data = await proxyRequest("midjourney", body);
+      output(data);
+      return;
+    }
+    // Imagine
+    if (!PROMPT) error("--prompt is required for Midjourney generation.");
+    const data = await proxyRequest("midjourney", {
+      action: "imagine", prompt: PROMPT, aspect_ratio: AR, mode: MODE,
+    });
+    output(data);
+  } else if (FAL_MODELS[MODEL]) {
+    // fal.ai models via proxy
+    if (!PROMPT) error("--prompt is required.");
+    const data = await proxyRequest("generate", {
+      model: MODEL, prompt: PROMPT, aspect_ratio: AR,
+      num_images: NUM_IMAGES, negative_prompt: NEG_PROMPT || undefined,
+      ...(SEED !== undefined && { seed: SEED }),
+    });
+    output(data);
+  } else {
+    error(`Unknown model: "${MODEL}". Valid options: midjourney, flux-pro, flux-dev, flux-schnell, sdxl, nano-banana, ideogram, recraft`);
+  }
+}
+
+// ── Legnext.ai HTTP helper ───────────────────────────────────────────────────
 function legnextRequest(method, path, body) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
@@ -481,6 +542,12 @@ async function generateFal(modelKey) {
 
 // ── Main ───────────────────────────────────────────────────────────────────
 async function main() {
+  // Proxy mode: route all requests through the proxy server
+  if (PROXY_MODE || PROXY_URL) {
+    await generateViaProxy();
+    return;
+  }
+
   if (MODEL === "midjourney") {
     await generateMidjourney();
   } else if (FAL_MODELS[MODEL]) {

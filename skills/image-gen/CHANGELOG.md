@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-26
+
+### Fixed
+- **SDXL endpoint**: Updated from deprecated `fal-ai/lightning-models/sdxl-lightning-4step` (404 Not Found) to `fal-ai/fast-sdxl`. All 8 models now pass integration tests.
+
+### Added
+- **image-gen-proxy**: New Vercel serverless proxy at `services/image-gen-proxy/`. Users can generate images without any API keys (50 free fal.ai / 20 free Midjourney generations per IP).
+  - `POST /api/generate` — fal.ai models (Flux, SDXL, Ideogram, Recraft, Nano Banana)
+  - `POST /api/midjourney` — Midjourney via Legnext.ai (imagine, upscale, variation, poll)
+  - `GET /api/health` — Health check and model registry
+- **generate.js proxy mode**: Added `--proxy` flag and `IMAGE_GEN_PROXY_URL` env var support. When set, the script routes requests through the proxy instead of calling APIs directly.
+
+---
+
 ## [1.3.0] - 2026-02-25
 
 ### Added
