@@ -3,6 +3,10 @@
  * Proxies image generation requests to fal.ai.
  * Users send a simple JSON body; the proxy injects the FAL_KEY server-side.
  *
+ * Authentication: Token-based (via X-ImageGen-Token header)
+ * - Call POST /api/token first to get a free token (100 uses)
+ * - Pro users with X-ImageGen-Key: IG_PRO_xxx bypass all limits
+ *
  * POST /api/generate
  * {
  *   "model": "flux-schnell",       // flux-pro | flux-dev | flux-schnell | sdxl | nano-banana | ideogram | recraft
@@ -19,19 +23,14 @@
 // Vercel Pro: maxDuration up to 300s for long fal.ai runs
 export const config = { maxDuration: 300 };
 
-const FREE_LIMIT = 50;
-
-// ── In-memory usage store (keyed by IP) ────────────────────────────────────
-const usageStore = {};
-function getUsage(userId) { return usageStore[userId] || 0; }
-function incrementUsage(userId) {
-  const count = (usageStore[userId] || 0) + 1;
-  usageStore[userId] = count;
-  return count;
-}
-function isProUser(proKey) {
-  return Boolean(proKey && proKey.startsWith("IG_PRO_"));
-}
+import {
+  isProUser,
+  getClientIp,
+  getTokenFromRequest,
+  validateToken,
+  incrementUsage,
+  FREE_LIMIT,
+} from "./_auth.js";
 
 // ── fal.ai model registry ──────────────────────────────────────────────────
 const FAL_MODELS = {
@@ -142,7 +141,7 @@ async function callFalQueue(falId, falInput, falKey) {
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-ImageGen-Key");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-ImageGen-Key, X-ImageGen-Token");
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
@@ -150,8 +149,9 @@ export default async function handler(req, res) {
   if (req.method === "GET") {
     return res.status(200).json({
       service: "Image-Gen Proxy",
-      version: "1.0.0",
+      version: "2.0.0",
       free_limit: FREE_LIMIT,
+      auth: "Token-based. POST /api/token to get a free token (100 uses).",
       models: Object.entries(FAL_MODELS).map(([id, m]) => ({
         id, fal_id: m.falId, description: m.desc
       })),
@@ -166,20 +166,25 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing required field: prompt" });
   }
 
-  // Auth & usage check
+  // ── Auth: Pro key bypasses everything ────────────────────────────────────
   const proKey = req.headers["x-imagegen-key"] || "";
-  const userIp = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown")
-    .split(",")[0].trim();
+  const isPro = isProUser(proKey);
 
-  if (!isProUser(proKey)) {
-    const usage = getUsage(userIp);
-    if (usage >= FREE_LIMIT) {
-      return res.status(402).json({
-        error: "free_trial_exhausted",
-        message: `You have used all ${FREE_LIMIT} free image generations. Upgrade to Pro for unlimited access.`,
-        used: usage, limit: FREE_LIMIT
+  // ── Auth: Token-based quota for free users ──────────────────────────────
+  let tokenInfo = null;
+  if (!isPro) {
+    const token = getTokenFromRequest(req);
+    const validation = validateToken(token);
+    if (!validation.valid) {
+      return res.status(validation.error === "quota_exhausted" ? 402 : 401).json({
+        error: validation.error,
+        message: validation.message,
+        ...(validation.used !== undefined && { used: validation.used }),
+        ...(validation.remaining !== undefined && { remaining: validation.remaining }),
+        limit: FREE_LIMIT,
       });
     }
+    tokenInfo = validation;
   }
 
   // Resolve model
@@ -209,14 +214,18 @@ export default async function handler(req, res) {
   // Extract images
   const images = (result.images || []).map(img => typeof img === "string" ? img : img.url);
 
-  // Track usage
+  // Track usage (only for free users, only after successful generation)
   let usageInfo = {};
-  if (!isProUser(proKey)) {
-    const newCount = incrementUsage(userIp);
-    const remaining = FREE_LIMIT - newCount;
-    usageInfo = { _remaining_uses: remaining, _plan: "free" };
-    if (remaining <= 5) {
-      usageInfo._warning = `Only ${remaining} free uses remaining. Upgrade to Pro for unlimited access.`;
+  if (!isPro && tokenInfo) {
+    const usage = incrementUsage(tokenInfo.token);
+    if (usage) {
+      usageInfo = {
+        _used: usage.used,
+        _remaining: usage.remaining,
+        _limit: usage.limit,
+        _plan: "free",
+      };
+      if (usage.warning) usageInfo._warning = usage.warning;
     }
   } else {
     usageInfo = { _plan: "pro" };
