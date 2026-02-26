@@ -3,6 +3,10 @@
  * Proxies Midjourney requests to Legnext.ai.
  * Supports: imagine, upscale, variation, reroll, describe, poll.
  *
+ * Authentication: Token-based (via X-ImageGen-Token header)
+ * - Only "imagine" action consumes quota (1 use per imagine)
+ * - poll/upscale/variation/reroll/describe are free follow-ups
+ *
  * POST /api/midjourney
  * {
  *   "action": "imagine",           // imagine | upscale | variation | reroll | describe | poll
@@ -18,19 +22,14 @@
 
 export const config = { maxDuration: 30 };
 
-const FREE_LIMIT = 20;  // MJ is expensive, lower free limit
-
-// ── In-memory usage store ──────────────────────────────────────────────────
-const usageStore = {};
-function getUsage(userId) { return usageStore[userId] || 0; }
-function incrementUsage(userId) {
-  const count = (usageStore[userId] || 0) + 1;
-  usageStore[userId] = count;
-  return count;
-}
-function isProUser(proKey) {
-  return Boolean(proKey && proKey.startsWith("IG_PRO_"));
-}
+import {
+  isProUser,
+  getClientIp,
+  getTokenFromRequest,
+  validateToken,
+  incrementUsage,
+  FREE_LIMIT,
+} from "./_auth.js";
 
 // ── Legnext.ai HTTP helper ─────────────────────────────────────────────────
 async function legnextRequest(method, path, body) {
@@ -60,15 +59,16 @@ async function legnextRequest(method, path, body) {
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-ImageGen-Key");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-ImageGen-Key, X-ImageGen-Token");
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
   if (req.method === "GET") {
     return res.status(200).json({
       service: "Image-Gen Proxy — Midjourney",
-      version: "1.0.0",
+      version: "2.0.0",
       free_limit: FREE_LIMIT,
+      auth: "Token-based. POST /api/token to get a free token. Only 'imagine' consumes quota.",
       actions: ["imagine", "upscale", "variation", "reroll", "describe", "poll"],
       modes: ["turbo", "fast", "relax"]
     });
@@ -81,20 +81,25 @@ export default async function handler(req, res) {
 
   const action = (payload.action || "imagine").toLowerCase();
 
-  // Auth & usage check (only for imagine, not for poll/upscale)
+  // ── Auth ─────────────────────────────────────────────────────────────────
   const proKey = req.headers["x-imagegen-key"] || "";
-  const userIp = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown")
-    .split(",")[0].trim();
+  const isPro = isProUser(proKey);
 
-  if (action === "imagine" && !isProUser(proKey)) {
-    const usage = getUsage(userIp);
-    if (usage >= FREE_LIMIT) {
-      return res.status(402).json({
-        error: "free_trial_exhausted",
-        message: `You have used all ${FREE_LIMIT} free Midjourney generations. Upgrade to Pro for unlimited access.`,
-        used: usage, limit: FREE_LIMIT
+  // Only "imagine" consumes quota; poll/upscale/variation are free follow-ups
+  let tokenInfo = null;
+  if (action === "imagine" && !isPro) {
+    const token = getTokenFromRequest(req);
+    const validation = validateToken(token);
+    if (!validation.valid) {
+      return res.status(validation.error === "quota_exhausted" ? 402 : 401).json({
+        error: validation.error,
+        message: validation.message,
+        ...(validation.used !== undefined && { used: validation.used }),
+        ...(validation.remaining !== undefined && { remaining: validation.remaining }),
+        limit: FREE_LIMIT,
       });
     }
+    tokenInfo = validation;
   }
 
   try {
@@ -141,14 +146,29 @@ export default async function handler(req, res) {
       const result = await legnextRequest("POST", "/diffusion", { text: mjPrompt });
       if (!result.job_id) return res.status(502).json({ error: "Legnext.ai submission failed", detail: result });
 
-      // Track usage
-      if (!isProUser(proKey)) incrementUsage(userIp);
+      // Track usage (only for free users)
+      let usageInfo = {};
+      if (!isPro && tokenInfo) {
+        const usage = incrementUsage(tokenInfo.token);
+        if (usage) {
+          usageInfo = {
+            _used: usage.used,
+            _remaining: usage.remaining,
+            _limit: usage.limit,
+            _plan: "free",
+          };
+          if (usage.warning) usageInfo._warning = usage.warning;
+        }
+      } else {
+        usageInfo = { _plan: "pro" };
+      }
 
       return res.status(200).json({
         success: true, model: "midjourney", action: "imagine",
         job_id: result.job_id, status: "submitted", pending: true,
         prompt: mjPrompt,
         message: `Midjourney job submitted. Poll with action:"poll", job_id:"${result.job_id}" to check status.`,
+        ...usageInfo,
       });
     }
 

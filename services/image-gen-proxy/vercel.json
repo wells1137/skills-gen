@@ -1,3 +1,12 @@
 {
-  "version": 2
+  "version": 2,
+  "builds": [
+    { "src": "api/*.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/health",     "dest": "/api/health.js" },
+    { "src": "/api/token",      "dest": "/api/token.js" },
+    { "src": "/api/generate",   "dest": "/api/generate.js" },
+    { "src": "/api/midjourney", "dest": "/api/midjourney.js" }
+  ]
 }

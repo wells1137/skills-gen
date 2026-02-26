@@ -7,6 +7,7 @@
 
 import express from "express";
 import healthHandler from "./api/health.js";
+import tokenHandler from "./api/token.js";
 import generateHandler from "./api/generate.js";
 import midjourneyHandler from "./api/midjourney.js";
 
@@ -15,6 +16,7 @@ app.use(express.json());
 
 // Wrap Vercel-style handler (req, res) for Express
 app.all("/api/health", (req, res) => healthHandler(req, res));
+app.all("/api/token", (req, res) => tokenHandler(req, res));
 app.all("/api/generate", (req, res) => generateHandler(req, res));
 app.all("/api/midjourney", (req, res) => midjourneyHandler(req, res));
 
@@ -22,6 +24,8 @@ const PORT = process.env.PORT || 3456;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`[image-gen-proxy] Local server running at http://localhost:${PORT}`);
   console.log(`  GET  http://localhost:${PORT}/api/health`);
-  console.log(`  POST http://localhost:${PORT}/api/generate`);
-  console.log(`  POST http://localhost:${PORT}/api/midjourney`);
+  console.log(`  POST http://localhost:${PORT}/api/token      ← Register token (100 free uses)`);
+  console.log(`  GET  http://localhost:${PORT}/api/token      ← Check remaining quota`);
+  console.log(`  POST http://localhost:${PORT}/api/generate   ← Generate image (fal.ai)`);
+  console.log(`  POST http://localhost:${PORT}/api/midjourney ← Midjourney actions`);
 });

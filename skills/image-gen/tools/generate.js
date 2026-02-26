@@ -111,19 +111,112 @@ function error(msg, details) {
   console.error(JSON.stringify({ success: false, error: msg, details }, null, 2));
   process.exit(1);
 }
+// ── Token file helpers ─────────────────────────────────────────────────────
+import fs from "fs";
+import path from "path";
+import os from "os";
+
+const TOKEN_FILE = path.join(os.homedir(), ".image-gen-token");
+
+function loadToken() {
+  try {
+    if (fs.existsSync(TOKEN_FILE)) {
+      return fs.readFileSync(TOKEN_FILE, "utf-8").trim();
+    }
+  } catch (_) { /* ignore */ }
+  return "";
+}
+
+function saveToken(token) {
+  try {
+    fs.writeFileSync(TOKEN_FILE, token, "utf-8");
+    process.stderr.write(`[proxy] Token saved to ${TOKEN_FILE}\n`);
+  } catch (e) {
+    process.stderr.write(`[proxy] Warning: could not save token: ${e.message}\n`);
+  }
+}
+
 // ── Proxy mode helpers ─────────────────────────────────────────────────────
+let _cachedToken = loadToken();
+
+async function ensureToken() {
+  if (_cachedToken) return _cachedToken;
+
+  const baseUrl = PROXY_URL.replace(/\/$/, "");
+  process.stderr.write(`[proxy] No token found. Registering at ${baseUrl}/api/token ...\n`);
+
+  const res = await fetch(`${baseUrl}/api/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  const data = await res.json();
+
+  if (!data.token) {
+    error("Failed to register token", data);
+  }
+
+  _cachedToken = data.token;
+  saveToken(data.token);
+
+  // Show welcome message
+  process.stderr.write(`\n${'='.repeat(60)}\n`);
+  process.stderr.write(`  ${data.message}\n`);
+  process.stderr.write(`  Token: ${data.token}\n`);
+  process.stderr.write(`${'='.repeat(60)}\n\n`);
+
+  return data.token;
+}
+
 async function proxyRequest(endpoint, body) {
   const baseUrl = PROXY_URL.replace(/\/$/, "");
+  const token = await ensureToken();
   const url = `${baseUrl}/api/${endpoint}`;
   process.stderr.write(`[proxy] POST ${url}\n`);
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-ImageGen-Token": token,
+    },
     body: JSON.stringify(body),
   });
 
   const data = await res.json();
+
+  // Show remaining uses info
+  if (data._remaining !== undefined) {
+    process.stderr.write(`[proxy] Remaining free uses: ${data._remaining}/${data._limit}\n`);
+  }
+  if (data._warning) {
+    process.stderr.write(`[proxy] ⚠ ${data._warning}\n`);
+  }
+
+  // Handle quota exhausted
+  if (data.error === "quota_exhausted") {
+    process.stderr.write(`\n${'='.repeat(60)}\n`);
+    process.stderr.write(`  ${data.message}\n`);
+    process.stderr.write(`${'='.repeat(60)}\n\n`);
+    process.exit(1);
+  }
+
+  // Handle invalid/missing token (re-register)
+  if (data.error === "invalid_token" || data.error === "missing_token") {
+    process.stderr.write(`[proxy] Token invalid, re-registering...\n`);
+    _cachedToken = "";
+    const newToken = await ensureToken();
+    // Retry the request with new token
+    const retryRes = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-ImageGen-Token": newToken,
+      },
+      body: JSON.stringify(body),
+    });
+    return await retryRes.json();
+  }
+
   if (!res.ok && !data.success) {
     error(`Proxy error (${res.status}): ${data.error || "unknown"}`, data);
   }

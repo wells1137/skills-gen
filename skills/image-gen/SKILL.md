@@ -244,8 +244,23 @@ If `IMAGE_GEN_PROXY_URL` is set (or `--proxy` flag is used), the skill routes al
 ### How It Works
 
 ```
-User's Agent → generate.js --proxy → Image-Gen Proxy (Vercel) → fal.ai / Legnext.ai
+User's Agent → generate.js --proxy → Image-Gen Proxy → fal.ai / Legnext.ai
+                                         ↕
+                                    Token Auth
+                                  (100 free uses)
 ```
+
+### Token-Based Authentication
+
+The proxy uses a **Token-based authentication** system to manage free usage:
+
+1. **First use**: When you run `generate.js` with `--proxy` for the first time, it automatically registers a free token from the proxy server. The token is saved locally at `~/.image-gen-token`.
+2. **Subsequent uses**: The token is automatically loaded and sent with every request. No manual action needed.
+3. **Free quota**: Each token has **100 free image generations** (all models combined, including Midjourney).
+4. **One token per IP**: Each IP address can only register one token. This prevents abuse.
+5. **Quota exhausted**: When all 100 uses are consumed, you will see a clear message. Upgrade to Pro for unlimited access.
+
+> **Important**: The token file (`~/.image-gen-token`) persists across sessions. Clearing your AI agent's context will NOT reset your free quota.
 
 ### Usage
 
@@ -269,15 +284,18 @@ node {baseDir}/generate.js \
 # Submit
 node {baseDir}/generate.js --model midjourney --prompt "a dragon" --proxy --proxy-url https://your-proxy.vercel.app
 
-# Poll
+# Poll (does not consume quota)
 node {baseDir}/generate.js --model midjourney --poll --job-id <id> --proxy --proxy-url https://your-proxy.vercel.app
 ```
 
 ### Free Tier Limits (via Proxy)
 
-| Model Type | Free Generations per IP |
+| Item | Limit |
 |---|---|
-| fal.ai models (Flux, SDXL, Ideogram, etc.) | 50 |
-| Midjourney | 20 |
+| Free generations per token | 100 |
+| Tokens per IP address | 1 |
+| Quota reset | Never (persistent) |
+| Actions that consume quota | `generate` (fal.ai) and `imagine` (Midjourney) |
+| Actions that are free | `poll`, `upscale`, `variation`, `reroll`, `describe` |
 
 After the free tier is exhausted, users receive a `402` response with upgrade instructions.
