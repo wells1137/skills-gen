@@ -8,23 +8,40 @@
  * - Pro users (with IG_PRO_ key) bypass all limits
  *
  * Storage:
- * - Production: Vercel KV (Redis) for persistence
- * - Local dev: In-memory Map (resets on restart, fine for testing)
+ * - Upstash Redis (via REST API) for persistence across serverless invocations
  *
- * Data structure in KV:
- *   token:{token}       → { ip, used, created_at }
- *   ip:{ip}             → { token }
+ * Redis key structure:
+ *   token:{token}       → JSON { ip, used, created_at }
+ *   ip:{ip}             → token string
  */
 
 import crypto from "crypto";
+import { Redis } from "@upstash/redis";
 
 const FREE_LIMIT = 100;
 
-// ── Storage backend ───────────────────────────────────────────────────────
-// In local dev, we use in-memory Maps.
-// In production (Vercel), replace with Vercel KV calls.
-const tokenStore = new Map();   // token → { ip, used, created_at }
-const ipStore = new Map();      // ip → token
+// ── Redis client (lazy singleton) ─────────────────────────────────────────
+let _redis = null;
+function getRedis() {
+  if (!_redis) {
+    // Vercel auto-injects KV_REST_API_URL and KV_REST_API_TOKEN when
+    // an Upstash store is connected. We also support the UPSTASH_* names.
+    const url =
+      process.env.KV_REST_API_URL ||
+      process.env.UPSTASH_REDIS_REST_URL;
+    const token =
+      process.env.KV_REST_API_TOKEN ||
+      process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    if (!url || !token) {
+      throw new Error(
+        "Redis not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN env vars."
+      );
+    }
+    _redis = new Redis({ url, token });
+  }
+  return _redis;
+}
 
 /**
  * Check if user has a Pro key (bypasses all limits)
@@ -37,8 +54,13 @@ export function isProUser(proKey) {
  * Get the client IP from the request
  */
 export function getClientIp(req) {
-  return (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "unknown")
-    .split(",")[0].trim();
+  return (
+    req.headers["x-forwarded-for"] ||
+    req.socket?.remoteAddress ||
+    "unknown"
+  )
+    .split(",")[0]
+    .trim();
 }
 
 /**
@@ -52,17 +74,20 @@ export function getTokenFromRequest(req) {
  * Register a new token for an IP, or return existing one.
  * Returns: { token, is_new, used, remaining, limit }
  */
-export function registerToken(ip) {
+export async function registerToken(ip) {
+  const redis = getRedis();
+
   // Check if this IP already has a token
-  const existingToken = ipStore.get(ip);
+  const existingToken = await redis.get(`ip:${ip}`);
   if (existingToken) {
-    const data = tokenStore.get(existingToken);
+    const data = await redis.get(`token:${existingToken}`);
     if (data) {
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
       return {
         token: existingToken,
         is_new: false,
-        used: data.used,
-        remaining: Math.max(0, FREE_LIMIT - data.used),
+        used: parsed.used,
+        remaining: Math.max(0, FREE_LIMIT - parsed.used),
         limit: FREE_LIMIT,
       };
     }
@@ -71,8 +96,12 @@ export function registerToken(ip) {
   // Generate new token
   const token = crypto.randomUUID();
   const data = { ip, used: 0, created_at: new Date().toISOString() };
-  tokenStore.set(token, data);
-  ipStore.set(ip, token);
+
+  // Store both mappings atomically via pipeline
+  const pipeline = redis.pipeline();
+  pipeline.set(`token:${token}`, JSON.stringify(data));
+  pipeline.set(`ip:${ip}`, token);
+  await pipeline.exec();
 
   return {
     token,
@@ -85,19 +114,32 @@ export function registerToken(ip) {
 
 /**
  * Validate a token and check quota.
- * Returns: { valid, token, used, remaining, limit, error? }
+ * Returns: { valid, token, used, remaining, limit, error?, message? }
  */
-export function validateToken(token) {
+export async function validateToken(token) {
   if (!token) {
-    return { valid: false, error: "missing_token", message: "No token provided. Call POST /api/token to get one." };
+    return {
+      valid: false,
+      error: "missing_token",
+      message:
+        "No token provided. Call POST /api/token to get one.",
+    };
   }
 
-  const data = tokenStore.get(token);
-  if (!data) {
-    return { valid: false, error: "invalid_token", message: "Invalid token. Call POST /api/token to get a new one." };
+  const redis = getRedis();
+  const raw = await redis.get(`token:${token}`);
+  if (!raw) {
+    return {
+      valid: false,
+      error: "invalid_token",
+      message:
+        "Invalid token. Call POST /api/token to get a new one.",
+    };
   }
 
+  const data = typeof raw === "string" ? JSON.parse(raw) : raw;
   const remaining = Math.max(0, FREE_LIMIT - data.used);
+
   if (remaining <= 0) {
     return {
       valid: false,
@@ -122,12 +164,14 @@ export function validateToken(token) {
  * Increment usage for a token. Call AFTER successful generation.
  * Returns: { used, remaining, limit, warning? }
  */
-export function incrementUsage(token) {
-  const data = tokenStore.get(token);
-  if (!data) return null;
+export async function incrementUsage(token) {
+  const redis = getRedis();
+  const raw = await redis.get(`token:${token}`);
+  if (!raw) return null;
 
+  const data = typeof raw === "string" ? JSON.parse(raw) : raw;
   data.used += 1;
-  tokenStore.set(token, data);
+  await redis.set(`token:${token}`, JSON.stringify(data));
 
   const remaining = Math.max(0, FREE_LIMIT - data.used);
   const result = { used: data.used, remaining, limit: FREE_LIMIT };
@@ -144,9 +188,11 @@ export function incrementUsage(token) {
 /**
  * Get usage info for a token (read-only, no side effects)
  */
-export function getUsageInfo(token) {
-  const data = tokenStore.get(token);
-  if (!data) return null;
+export async function getUsageInfo(token) {
+  const redis = getRedis();
+  const raw = await redis.get(`token:${token}`);
+  if (!raw) return null;
+  const data = typeof raw === "string" ? JSON.parse(raw) : raw;
   const remaining = Math.max(0, FREE_LIMIT - data.used);
   return { used: data.used, remaining, limit: FREE_LIMIT };
 }

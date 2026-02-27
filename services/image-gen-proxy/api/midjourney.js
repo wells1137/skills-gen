@@ -67,7 +67,7 @@ export default async function handler(req, res) {
   if (req.method === "GET") {
     return res.status(200).json({
       service: "Image-Gen Proxy — Midjourney",
-      version: "2.0.0",
+      version: "2.1.0",
       free_limit: FREE_LIMIT,
       auth: "Token-based. POST /api/token to get a free token. Only 'imagine' consumes quota.",
       actions: ["imagine", "upscale", "variation", "reroll", "describe", "poll"],
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
   let tokenInfo = null;
   if (action === "imagine" && !isPro) {
     const token = getTokenFromRequest(req);
-    const validation = validateToken(token);
+    const validation = await validateToken(token);
     if (!validation.valid) {
       return res.status(validation.error === "quota_exhausted" ? 402 : 401).json({
         error: validation.error,
@@ -150,7 +150,7 @@ export default async function handler(req, res) {
       // Track usage (only for free users)
       let usageInfo = {};
       if (!isPro && tokenInfo) {
-        const usage = incrementUsage(tokenInfo.token);
+        const usage = await incrementUsage(tokenInfo.token);
         if (usage) {
           usageInfo = {
             _used: usage.used,

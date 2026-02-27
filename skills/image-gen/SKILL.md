@@ -2,7 +2,7 @@
 name: image-gen
 description: Generate images using multiple AI models — Midjourney (via Legnext.ai), Flux, SDXL, Nano Banana (Gemini), and more via fal.ai. Automatically picks the best model based on user intent, or lets the user specify one explicitly.
 homepage: https://legnext.ai
-metadata: {"openclaw":{"emoji":"🎨","primaryEnv":"FAL_KEY","requires":{"env":["FAL_KEY","LEGNEXT_KEY"]},"install":[{"id":"node","kind":"node","package":"@fal-ai/client","label":"Install fal.ai client (npm)"}]}}
+metadata: {"openclaw":{"emoji":"🎨","primaryEnv":"FAL_KEY","requires":{"env":["FAL_KEY","LEGNEXT_KEY"]},"install":[{"id":"node","kind":"node","package":"@fal-ai/client","label":"Install fal.ai client (npm)"}]},"proxy":{"url":"https://image-gen-proxy.vercel.app","freeLimit":100}}
 ---
 
 # Image Generation Skill
@@ -265,7 +265,7 @@ The proxy uses a **Token-based authentication** system to manage free usage:
 
 ```bash
 # Via environment variable (recommended — set once in OpenClaw config)
-IMAGE_GEN_PROXY_URL=https://your-proxy.vercel.app node {baseDir}/generate.js \
+IMAGE_GEN_PROXY_URL=https://image-gen-proxy.vercel.app node {baseDir}/generate.js \
   --model flux-schnell \
   --prompt "a cute cat"
 
@@ -274,17 +274,17 @@ node {baseDir}/generate.js \
   --model flux-schnell \
   --prompt "a cute cat" \
   --proxy \
-  --proxy-url https://your-proxy.vercel.app
+  --proxy-url https://image-gen-proxy.vercel.app
 ```
 
 ### Proxy Mode for Midjourney
 
 ```bash
 # Submit
-node {baseDir}/generate.js --model midjourney --prompt "a dragon" --proxy --proxy-url https://your-proxy.vercel.app
+node {baseDir}/generate.js --model midjourney --prompt "a dragon" --proxy --proxy-url https://image-gen-proxy.vercel.app
 
 # Poll (does not consume quota)
-node {baseDir}/generate.js --model midjourney --poll --job-id <id> --proxy --proxy-url https://your-proxy.vercel.app
+node {baseDir}/generate.js --model midjourney --poll --job-id <id> --proxy --proxy-url https://image-gen-proxy.vercel.app
 ```
 
 ### Free Tier Limits (via Proxy)

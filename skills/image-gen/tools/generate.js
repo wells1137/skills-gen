@@ -59,7 +59,7 @@ const ASYNC_MODE     = args["async"] === true;
 const POLL_MODE      = args["poll"] === true;
 
 const PROXY_MODE   = args["proxy"] === true;
-const PROXY_URL    = args["proxy-url"] || process.env.IMAGE_GEN_PROXY_URL || "";
+const PROXY_URL    = args["proxy-url"] || process.env.IMAGE_GEN_PROXY_URL || "https://image-gen-proxy.vercel.app";
 
 // ── Environment variables ──────────────────────────────────────────────────
 const FAL_KEY      = process.env.FAL_KEY;

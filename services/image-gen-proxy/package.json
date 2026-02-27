@@ -7,6 +7,7 @@
     "node": "20.x"
   },
   "dependencies": {
+    "@upstash/redis": "^1.36.2",
     "express": "^5.2.1"
   }
 }
