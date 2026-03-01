@@ -6,8 +6,8 @@
 #   3. 在本机执行： scp ~/.openclaw/openclaw.json root@你的公网IP:~/.openclaw/
 
 # ========== 在这里填你的密钥（必填）==========
-GOOGLE_API_KEY=""         REDACTED_GOOGLE_API_KEY
-TELEGRAM_BOT_TOKEN=""      REDACTED_TELEGRAM_TOKEN
+GOOGLE_API_KEY=""         # 在此填入你的 Google API Key
+TELEGRAM_BOT_TOKEN=""      # 在此填入你的 Telegram Bot Token
 # ============================================
 
 set -e
