@@ -1,39 +1,38 @@
-# 🎬 skills-gen
+# skills-gen
 
-A collection of open-source **Agent Skills** for AI-powered video production, image generation, audio production, and more.
+A collection of open-source **Agent Skills** for [OpenClaw](https://openclaw.ai), focused on **content creation** — images, audio, and video — with zero API key management.
 
-> Compatible with [Claude Code](https://code.claude.com/docs/en/skills), [Codex](https://developers.openai.com), [Gemini CLI](https://geminicli.com), [Antigravity](https://antigravity.google), [Kiro](https://kiro.dev), and other agents supporting the [Agent Skills](https://agentskills.io) standard.
+> We handle all the service integrations so you can focus on creating.
 
-## Skills
+Compatible with [Claude Code](https://code.claude.com/docs/en/skills), [OpenClaw](https://openclaw.ai), and other agents supporting the [Agent Skills](https://agentskills.io) standard.
+
+## Available Skills
 
 | Skill | Description | Category |
-|-------|-------------|----------|
-| [audiomind](skills/audiomind/) | AI audio production studio — scripting, voice-overs, music, and final mixing | 🎵 Audio |
-| [image-gen](skills/image-gen/) | Unified image generation — Midjourney, Flux, SDXL, Nano Banana, Ideogram, Recraft | 🎨 Image |
-| [overlay-skill](skills/overlay-skill/) | Add professional packaging to videos — intros, outros, subtitles, transitions, watermarks | 🎬 Video |
-| [seedance-prompt-designer](skills/seedance-prompt-designer/) | Smart prompt generation for Seedance 2.0 multimodal video generation | 🎬 Video |
-| [transition-design](skills/transition-design/) | Analyze boundary frames between clips and design optimal transition effects | 🎬 Video |
-| [mcp-hass](skills/mcp-hass/) | Home Assistant MCP integration | 🔧 Integration |
-| [openclaw-mcp-plugin](skills/openclaw-mcp-plugin/) | OpenClaw MCP plugin for skill discovery and management | 🔧 Integration |
-| [playwright-mcp](skills/playwright-mcp/) | Playwright browser automation via MCP | 🔧 Integration |
+|---|---|---|
+| 🎨 [image-gen](skills/image-gen/) | Generate images with 8 AI models (Midjourney, Flux, Ideogram, and more). Zero API keys needed. | Image |
+| 🎙️ [audiomind](skills/audiomind/) | TTS, music, sound effects, and voice cloning — all in one skill. | Audio |
+| 🎬 [overlay-skill](skills/overlay-skill/) | Add professional intros, subtitles, watermarks, and lower thirds to videos. | Video |
+| 🎥 [seedance-prompt-designer](skills/seedance-prompt-designer/) | Expert prompt engineering for Seedance 2.0 video generation. | Video |
 
-## Quick Start
+## Quick Install
 
-### Using with Claude Code
+### Via ClaWHub (Recommended)
 ```bash
-# Clone and add to your project
-git clone https://github.com/wells1137/skills-gen.git
-cp -r skills-gen/skills/transition-design .claude/skills/
+clawhub install wells1137/image-gen
+clawhub install wells1137/audiomind
+clawhub install wells1137/overlay-skill
+clawhub install wells1137/seedance-prompt-designer
 ```
 
-### Using with skills.sh
+### Via npx skills
 ```bash
-npx skills add wells1137/skills-gen/skills/transition-design
+npx skills add wells1137/skills-gen
 ```
 
-### Using with OpenClaw / ClawHub
+### Via Claude Code Plugin Marketplace
 ```bash
-clawhub install wells1137/skills-gen
+/plugin marketplace add wells1137/skills-gen
 ```
 
 ## Skill Format
@@ -43,19 +42,18 @@ Each skill follows the [Agent Skills Specification](https://agentskills.io/speci
 ```
 skill-name/
 ├── SKILL.md              # Required: Instructions and metadata
+├── README.md             # Recommended: Human-readable docs
 ├── references/           # Optional: Knowledge base files
 ├── scripts/              # Optional: Executable scripts
 └── assets/               # Optional: Static resources
 ```
 
-## Contributing
+## About
 
-Contributions are welcome! To add a new skill:
+These skills are built and maintained by [@wells1137](https://github.com/wells1137), a content creation skills team focused on making AI-powered creative tools accessible to everyone.
 
-1. Create a directory under `skills/` with your skill name
-2. Add a `SKILL.md` with proper YAML frontmatter (`name` and `description`)
-3. Include any reference files, scripts, or assets
-4. Submit a pull request
+- **ClaWHub**: [clawhub.ai/wells1137](https://clawhub.ai/wells1137)
+- **Issues / Feedback**: [GitHub Issues](https://github.com/wells1137/skills-gen/issues)
 
 ## License
 

@@ -12,7 +12,7 @@ tags:
   - ideogram
   - recraft
 description: >
-  Generate stunning images with 8 AI models — Midjourney, Flux, Gemini (Nano Banana), Ideogram, and more. One command, zero complexity. The skill handles all async polling automatically.
+  Tired of juggling 8 API keys? This skill gives you one-command access to Midjourney, Flux, Ideogram, and more, with zero setup. Use when you want to generate any image without worrying about API keys.
 homepage: https://github.com/wells1137/image-gen-skill
 metadata:
   openclaw:

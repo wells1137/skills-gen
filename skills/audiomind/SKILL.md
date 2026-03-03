@@ -12,7 +12,7 @@ tags:
   - elevenlabs
   - fal
 description: >
-  Generate speech, music, and sound effects with one command. Routes to ElevenLabs and fal.ai automatically. Works out of the box — just set ELEVENLABS_API_KEY.
+  Tired of juggling multiple audio APIs? This skill gives you one-command access to TTS, music generation, sound effects, and voice cloning. Use when you want to generate any audio without managing multiple API keys.
 homepage: https://github.com/wells1137/audiomind-skill
 metadata:
   openclaw:

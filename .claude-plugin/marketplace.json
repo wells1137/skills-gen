@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "pluginRoot": "./skills"
+  },
+  "skills": [
+    {
+      "name": "image-gen",
+      "source": "./skills/image-gen",
+      "description": "Generate images with 8 AI models (Midjourney, Flux, Ideogram, and more). Zero API keys needed.",
+      "strict": false,
+      "skills": ["./"]
+    },
+    {
+      "name": "audiomind",
+      "source": "./skills/audiomind",
+      "description": "TTS, music, sound effects, and voice cloning — all in one skill.",
+      "strict": false,
+      "skills": ["./"]
+    },
+    {
+      "name": "overlay-skill",
+      "source": "./skills/overlay-skill",
+      "description": "Add professional intros, subtitles, watermarks, and lower thirds to videos.",
+      "strict": false,
+      "skills": ["./"]
+    },
+    {
+      "name": "seedance-prompt-designer",
+      "source": "./skills/seedance-prompt-designer",
+      "description": "Expert prompt engineering for Seedance 2.0 video generation.",
+      "strict": false,
+      "skills": ["./"]
+    }
+  ]
+}
