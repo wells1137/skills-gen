@@ -5,11 +5,12 @@
 ## 项目结构
 
 ```
-image-gen-skill/
+image-gen/
 ├── SKILL.md          # Skill 核心定义文件（OpenClaw 读取此文件）
-├── generate.js       # 图片生成核心脚本（Node.js ESM）
+├── tools/
+│   └── generate.js   # 图片生成核心脚本（Node.js ESM）
 ├── package.json      # 依赖声明（@fal-ai/client）
-├── .gitignore
+├── .env.example      # 环境变量示例
 ├── CONTRIBUTING.md   # 本文件
 └── CHANGELOG.md      # 版本更新记录
 ```
@@ -28,20 +29,20 @@ npm install
 cp .env.example .env
 # 编辑 .env，填入你的 API Keys：
 # FAL_KEY=your_fal_key
-# TTAPI_KEY=your_ttapi_key
+# LEGNEXT_KEY=your_legnext_key
 ```
 
 ## 本地测试
 
 ```bash
-# 测试 Flux Dev（最快，无需 TTAPI_KEY）
-FAL_KEY=your_key node generate.js \
+# 测试 Flux Dev（快速，仅需 FAL_KEY）
+FAL_KEY=your_key node tools/generate.js \
   --model flux-dev \
   --prompt "a cute cat, photorealistic" \
   --aspect-ratio 1:1
 
-# 测试 Midjourney（需要 TTAPI_KEY）
-TTAPI_KEY=your_key node generate.js \
+# 测试 Midjourney（需要 LEGNEXT_KEY）
+LEGNEXT_KEY=your_key node tools/generate.js \
   --model midjourney \
   --prompt "a majestic snow leopard, cinematic" \
   --aspect-ratio 16:9
@@ -51,7 +52,7 @@ TTAPI_KEY=your_key node generate.js \
 
 | Model Key | 供应商 | 说明 |
 |---|---|---|
-| `midjourney` | TTAPI | 艺术感最强，需要 TTAPI_KEY |
+| `midjourney` | Legnext.ai | 艺术感最强，需要 LEGNEXT_KEY |
 | `flux-pro` | fal.ai | 最高质量写实图 |
 | `flux-dev` | fal.ai | 通用高质量 |
 | `flux-schnell` | fal.ai | 最快，适合草稿 |
@@ -82,7 +83,7 @@ clawhub login --token <your_clawhub_token>
 clawhub publish . \
   --slug image-gen \
   --name "Image Gen" \
-  --version 1.x.x \
+  --version 2.x.x \
   --changelog "本次更新内容..." \
   --tags "latest,image,midjourney,flux,sdxl,fal,generation,ai"
 ```
@@ -92,8 +93,8 @@ clawhub publish . \
 **Q: FAL_KEY 从哪里获取？**
 A: 访问 [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) 创建 API Key。
 
-**Q: TTAPI_KEY 从哪里获取？**
-A: 访问 [ttapi.io/dashboard](https://ttapi.io/dashboard) 获取 API Key。
+**Q: LEGNEXT_KEY 从哪里获取？**
+A: 访问 [legnext.ai/dashboard](https://legnext.ai/dashboard) 获取 API Key.
 
 **Q: 如何新增一个模型？**
-A: 在 `generate.js` 的 `FAL_MODELS` 对象中添加新的模型 ID，然后在对应的 `generateFal()` 函数中添加 input 构建逻辑，最后更新 `SKILL.md` 的模型选择指南。
+A: 在 `tools/generate.js` 的 `FAL_MODELS` 对象中添加新的模型 ID，然后在对应的 `generateFal()` 函数中添加 input 构建逻辑，最后更新 `SKILL.md` 的模型选择指南。

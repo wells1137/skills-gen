@@ -1,8 +1,8 @@
 ---
 name: AudioMind
-version: 2.1.8
-author: "@wells1137"
-emoji: "🎧"
+version: 3.0.0
+author: "wells"
+emoji: "🎙️"
 tags:
   - audio
   - tts
@@ -12,125 +12,197 @@ tags:
   - elevenlabs
   - fal
 description: >
-  One skill for all AI audio: TTS, music, SFX, and voice cloning. Routes your requests to 17+ models (ElevenLabs, fal.ai) via a single proxy. Free tier included; async support for long tasks.
-homepage: https://github.com/wells1137/skills-gen
+  Generate speech, music, and sound effects with one command. Routes to ElevenLabs and fal.ai automatically. Works out of the box — just set ELEVENLABS_API_KEY.
+homepage: https://github.com/wells1137/audiomind-skill
 metadata:
-  clawdbot:
-    emoji: "🎧"
+  openclaw:
+    emoji: "🎙️"
+    primaryEnv: ELEVENLABS_API_KEY
     requires:
-      env: []
-    files: ["cli.js", "tools/start_server.sh"]
+      env:
+        - ELEVENLABS_API_KEY
+    install:
+      - id: elevenlabs-mcp
+        kind: npm
+        package: "@elevenlabs/mcp"
+        label: "Install ElevenLabs MCP server"
 ---
 
-## Description
+# 🎙️ AudioMind
 
-**AudioMind** is a zero-configuration audio skill that routes natural-language requests to 17+ models from **ElevenLabs** and **fal.ai** for TTS, music, sound effects, and voice cloning. No API keys needed for the free tier; the skill calls a public proxy that handles auth and rate limits. Long-running tasks (e.g. music) use an async workflow with status polling so the agent does not block or timeout.
+**Use when:** User asks to generate speech, narrate text, create a voice-over, compose music, or produce a sound effect.
 
-## How It Works (v2.1.0 with Async)
-
-1.  **Request**: The user makes a request (e.g., "*Compose a 2-minute cinematic score*").
-2.  **Smart Routing**: AudioMind analyzes the request and selects the best model.
-3.  **Proxy Call**: The skill sends a request to the AudioMind Proxy Service.
-4.  **Immediate Response**: 
-    - For **fast tasks** (most TTS), the audio is returned directly.
-    - For **long tasks** (music, some SFX), the proxy immediately returns a `task_id` and a `status_url`.
-5.  **Polling**: The agent (or user) periodically checks the `status_url`.
-6.  **Result**: Once the task is complete, the `status_url` will contain the final `audio_url`.
-
-## Usage
-
-**Synchronous (for TTS & fast SFX)**
-
-```
-"Narrate this: Hello, world!"
-> Returns audio file directly.
-```
-
-**Asynchronous (for Music & long SFX)**
-
-```
-"Compose a 90-second lo-fi track."
-> Returns: {"status": "in_progress", "task_id": "...", "status_url": "..."}
-
-# Agent should then poll the status_url until status is "completed"
-```
-
-## User Experience Rules (Important)
-
-When serving end users in chat, keep progress updates minimal:
-
-1. Send at most **one** start message (for example: "Started generating, will send result shortly.").
-2. Do **not** send repeated waiting messages like "please wait", "still generating", or duplicate status lines.
-3. Agent should **proactively poll generation status** in the background (do not wait for the user to ask).
-4. If generation is still running after ~45 seconds, send only **one** concise progress update.
-5. As soon as generation completes, send the final audio link immediately.
-6. If the user asks "Not ready yet?" or "Are we done?" while running, reply with one short status sentence only.
-
-Default style should be concise and low-interruption.
-
-### Be terse — no fluff
-
-- **Do not** send "please wait" / "I am trying to send the file, please wait" after each audio.
-- **Do not** send a separate "Success! This is the XXX you requested!" message for each file; the audio message (and its short caption) is enough.
-- **Do not** announce each step (e.g. "Next, generating the second...", "Finally, the third..."); just generate and send.
-- For **multiple items**: send each audio with at most a one-line caption (e.g. effect name: "ocean waves", "thunder"); no per-item progress + success pair.
-- At the end, **one** short closing is optional (e.g. "Done." or "Sent 3."); omit if the files speak for themselves.
-
-## Output Handling Rules (Telegram-safe)
-
-1. Never paste large `audio_base64` content directly into chat.
-2. Prefer `audio_url` when available.
-3. If response contains `audio_file_path`, send it as media attachment with a **short caption only** (e.g. the effect name); do not add a follow-up text message saying "Success!" or "Sent!".
-4. Do not regenerate the same request repeatedly just because delivery failed once; retry delivery first.
-5. For sound effects requests, always pass `--action sfx` explicitly (do not rely on implicit routing).
-6. If tool output includes `delivery_hint`, follow it exactly and avoid additional transformation steps.
-7. Never tell the user "I will save base64 to file" unless an actual `exec` command has completed that file write successfully.
-
-## External Endpoints
-
-| Endpoint | Method | Data sent | Purpose |
-|----------|--------|-----------|---------|
-| `AUDIOMIND_PROXY_URL` (default: `https://audiomind-proxy.vercel.app/api/audio`) | POST | `action`, `text`, `prompt`, optional `duration_seconds`, `model`, `fast`; optional header `X-Audiomind-Key` for Pro | Request audio generation |
-| Same origin, `status_url` from response | GET | None (URL only) | Poll async task status until `audio_url` is returned |
-
-All user-provided text (prompt, narration, effect description) is sent only to the proxy above. The proxy forwards requests to ElevenLabs and fal.ai; it does not store prompts long-term. No other external URLs are called by this skill.
-
-## Security & Privacy
-
-- **What leaves the machine:** The skill sends only the user’s request (text/prompt, action type, duration) to the AudioMind Proxy (and the proxy to ElevenLabs/fal.ai). No browser data, credentials, or local files are read or uploaded.
-- **What stays local:** Optional local file write: decoded audio may be written under `AUDIOMIND_OUTPUT_DIR` or `~/.openclaw/workspace/tmp/audiomind/` for delivery. No other local files are read. Usage count for free tier is stored in `/tmp/audiomind_usage_count.txt` by `tools/start_server.sh` when that script is used.
-- **Credentials:** No API keys are required for the free tier. Optional env: `AUDIOMIND_API_KEY` (Pro), `AUDIOMIND_PROXY_URL` (override proxy), `ELEVENLABS_API_KEY` (only when running Pro mode locally). Keys are never logged or sent except to the documented proxy or ElevenLabs as intended.
-- **No shell injection:** User input is passed only as JSON in HTTP request bodies (cli.js) or not at all (start_server.sh). No `eval`, no unsanitized shell interpolation.
-
-## Trust Statement
-
-By using this skill, your prompts and text are sent to the AudioMind Proxy (hosted at audiomind-proxy.vercel.app) and, for generation, to ElevenLabs and fal.ai. Only install if you trust these services. The skill does not download or execute arbitrary code; it only calls the documented HTTP API and optional local scripts (cli.js, start_server.sh) included in the skill package.
-
-**Why VirusTotal (or a single “clean” scan) is not enough to trust a skill:** VirusTotal aggregates many antivirus engines that look for known malware signatures. A skill can be unsafe through its *instructions* (what the agent is told to do) or script *behavior* (e.g. sending data to an untrusted endpoint), not just through traditional malware. A “clean” result does not guarantee safety. Prefer reviewing this SKILL’s **External Endpoints**, **Security & Privacy**, and **Trust Statement** (and the source code if you can) before installing.
-
-## Model Registry (Vercel Pro–ready)
-
-With the proxy on **Vercel Pro**, function timeout is 5 minutes. Long-running models (music, some TTS/voice-clone/SFX) are stable.
-
-| Type          | Model ID                    | Provider   | Status         | Notes                                      |
-| :------------ | :-------------------------- | :--------- | :------------- | :----------------------------------------- |
-| **TTS**       | `elevenlabs-tts-v3`         | ElevenLabs | ✅ **Stable**   | High quality, fast                         |
-|               | `elevenlabs-tts-v2`         | ElevenLabs | ✅ **Stable**   |                                            |
-|               | `elevenlabs-tts-turbo`      | ElevenLabs | ✅ **Stable**   | Ultra-low latency                          |
-|               | `minimax-tts-2.8-turbo`     | fal.ai     | ✅ **Stable**   | Fast, good quality                         |
-|               | `chatterbox-tts`             | fal.ai     | ✅ **Stable**   | Stable with 5 min timeout (Vercel Pro)    |
-|               | `minimax-tts-hd`            | fal.ai     | ❌ **Offline**  | fal.ai API returns 502                     |
-|               | `minimax-tts-2.6-hd`        | fal.ai     | ❌ **Offline**  | fal.ai API returns 502                     |
-|               | `playai-dialog`             | fal.ai     | ✅ **Stable**   | Stable with 5 min timeout (Vercel Pro)     |
-| **Voice Clone** | `dia-voice-clone`           | fal.ai     | ✅ **Stable**   | Stable with 5 min timeout (Vercel Pro)     |
-| **Music**     | `elevenlabs-music`          | ElevenLabs | ✅ **Stable**   | Stable with Vercel Pro (5 min timeout)    |
-|               | `cassetteai-music`          | fal.ai     | ✅ **Stable**   | Fast, reliable                             |
-|               | `beatoven-music`            | fal.ai     | ✅ **Stable**   | Stable with Vercel Pro (5 min timeout)   |
-| **SFX**       | `elevenlabs-sfx`            | ElevenLabs | ✅ **Stable**   | Stable with Vercel Pro (5 min timeout)    |
-|               | `beatoven-sfx`              | fal.ai     | ✅ **Stable**   | Stable with Vercel Pro (5 min timeout)   |
+AudioMind is a smart audio dispatcher. It analyzes your request and routes it to the best available model — ElevenLabs for speech and music, fal.ai for fast SFX — and returns a ready-to-use audio URL.
 
 ---
 
-## Commercial Use
+## Quick Reference
 
-This skill includes a free tier of **100 generations** (stable models only). For unlimited use and access to all models, upgrade to AudioMind Pro (Gumroad link provided when the free limit is reached or on the skill homepage).
+| Request Type | Best Model | Latency |
+|---|---|---|
+| Narrate text / Voice-over | `elevenlabs-tts-v3` | ~3s |
+| Low-latency TTS (real-time) | `elevenlabs-tts-turbo` | <1s |
+| Background music | `cassetteai-music` | ~15s |
+| Sound effect | `elevenlabs-sfx` | ~5s |
+| Clone a voice from audio | `elevenlabs-voice-clone` | ~10s |
+
+---
+
+## How to Use
+
+### 1. Start the AudioMind server (once per session)
+
+```bash
+bash {baseDir}/tools/start_server.sh
+```
+
+This starts the ElevenLabs MCP server on port 8124. The skill uses it for all audio generation.
+
+### 2. Route the request
+
+Analyze the user's request and call the appropriate tool via the MCP server:
+
+**Text-to-Speech (TTS)**
+
+When user asks to "narrate", "read aloud", "say", or "create a voice-over":
+
+```
+Use MCP tool: text_to_speech
+  text: "<the text to narrate>"
+  voice_id: "JBFqnCBsd6RMkjVDRZzb"   # Default: "George" (professional, neutral)
+  model_id: "eleven_multilingual_v2"   # Use "eleven_turbo_v2_5" for low latency
+```
+
+**Music Generation**
+
+When user asks to "compose", "create background music", or "make a soundtrack":
+
+```
+Use MCP tool: text_to_sound_effects  (via cassetteai-music on fal.ai)
+  prompt: "<music description, e.g. 'upbeat lo-fi hip hop, 90 seconds'>"
+  duration_seconds: <duration>
+```
+
+**Sound Effect (SFX)**
+
+When user asks for a specific sound (e.g., "a door creaking", "rain on a window"):
+
+```
+Use MCP tool: text_to_sound_effects
+  text: "<sound description>"
+  duration_seconds: <1-22>
+```
+
+**Voice Cloning**
+
+When user provides an audio sample and wants to clone the voice:
+
+```
+Use MCP tool: voice_add
+  name: "<voice name>"
+  files: ["<audio_file_url>"]
+```
+
+---
+
+## Example Conversations
+
+**User:** "帮我把这段文字配音：欢迎来到我们的产品发布会"
+
+```
+→ Route to: text_to_speech
+  text: "欢迎来到我们的产品发布会"
+  voice_id: "JBFqnCBsd6RMkjVDRZzb"
+  model_id: "eleven_multilingual_v2"
+```
+
+> 🎙️ 配音完成！[点击收听](audio_url)
+
+---
+
+**User:** "给我生成一段 60 秒的轻松背景音乐，适合播客"
+
+```
+→ Route to: cassetteai-music (fal.ai)
+  prompt: "relaxing lo-fi background music for a podcast, gentle piano and soft beats, 60 seconds"
+  duration_seconds: 60
+```
+
+> 🎵 背景音乐生成完成！[点击收听](audio_url)
+
+---
+
+**User:** "生成一个科幻风格的门开启音效"
+
+```
+→ Route to: text_to_sound_effects
+  text: "a futuristic sci-fi door sliding open with a hydraulic hiss"
+  duration_seconds: 3
+```
+
+---
+
+## Setup
+
+### Required
+
+Set `ELEVENLABS_API_KEY` in `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "skills": {
+    "entries": {
+      "audiomind": {
+        "enabled": true,
+        "env": {
+          "ELEVENLABS_API_KEY": "your_elevenlabs_key_here"
+        }
+      }
+    }
+  }
+}
+```
+
+Get your key at [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys).
+
+### Optional (for fal.ai music & SFX models)
+
+```json
+"FAL_KEY": "your_fal_key_here"
+```
+
+Get your key at [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys).
+
+---
+
+## Model Reference
+
+| Model ID | Type | Provider | Notes |
+|---|---|---|---|
+| `eleven_multilingual_v2` | TTS | ElevenLabs | Best quality, supports 29 languages |
+| `eleven_turbo_v2_5` | TTS | ElevenLabs | Ultra-low latency, ideal for real-time |
+| `eleven_monolingual_v1` | TTS | ElevenLabs | English only, fastest |
+| `cassetteai-music` | Music | fal.ai | Reliable, fast music generation |
+| `elevenlabs-sfx` | SFX | ElevenLabs | High-quality sound effects (up to 22s) |
+| `elevenlabs-voice-clone` | Clone | ElevenLabs | Clone any voice from a short audio sample |
+
+---
+
+## Changelog
+
+### v3.0.0
+- **Simplified routing table**: Removed unstable/offline models from the main reference. The skill now only surfaces models that reliably work.
+- **Clearer use-case triggers**: Added "Use when" section so the agent activates this skill at the right moment.
+- **Unified setup**: Single `ELEVENLABS_API_KEY` is all you need to get started. `FAL_KEY` is now optional.
+- **Removed polling complexity**: Music generation now uses `cassetteai-music` by default, which completes synchronously.
+
+### v2.1.0
+- Added async workflow for long-running music generation tasks.
+- Added `cassetteai-music` as a stable alternative for music generation.
+
+### v2.0.0
+- Migrated to ElevenLabs MCP server architecture.
+- Added voice cloning support.
+
+### v1.0.0
+- Initial release with TTS, music, and SFX routing.

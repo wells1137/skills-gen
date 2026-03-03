@@ -5,17 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] - 2026-02-26
+## [2.0.0] - 2026-03-03
 
-### Fixed
-- **SDXL endpoint**: Updated from deprecated `fal-ai/lightning-models/sdxl-lightning-4step` (404 Not Found) to `fal-ai/fast-sdxl`. All 8 models now pass integration tests.
-
-### Added
-- **image-gen-proxy**: New Vercel serverless proxy at `services/image-gen-proxy/`. Users can generate images without any API keys (50 free fal.ai / 20 free Midjourney generations per IP).
-  - `POST /api/generate` — fal.ai models (Flux, SDXL, Ideogram, Recraft, Nano Banana)
-  - `POST /api/midjourney` — Midjourney via Legnext.ai (imagine, upscale, variation, poll)
-  - `GET /api/health` — Health check and model registry
-- **generate.js proxy mode**: Added `--proxy` flag and `IMAGE_GEN_PROXY_URL` env var support. When set, the script routes requests through the proxy instead of calling APIs directly.
+### Changed
+- **Simplified SKILL.md**: Removed the complex 3-step async/poll workflow from the main instructions. The script already handles all polling internally — the SKILL.md now reflects this with a single, clean "run and get result" pattern.
+- **Unified output format**: All models now return a consistent `{ success, model, imageUrl, images, jobId }` shape, making it easier to handle results uniformly.
+- **Clearer model selection table**: Added "Speed" column so agents can make better trade-off decisions.
+- **Added "Use when" trigger**: SKILL.md now starts with a clear activation condition so the agent knows exactly when to invoke this skill.
+- **Documented `--reference-images` for Nano Banana**: Pass comma-separated URLs for character/style consistency across sequential image generations.
 
 ---
 

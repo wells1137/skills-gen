@@ -1,10 +1,4 @@
 #!/bin/bash
-# SECURITY MANIFEST:
-#   Environment variables accessed: AUDIOMIND_API_KEY, ELEVENLABS_API_KEY (optional)
-#   External endpoints called: none (this script only starts elevenlabs-mcp locally)
-#   Local files read: /tmp/audiomind_usage_count.txt (create/read/write usage count only)
-#   Local files written: /tmp/audiomind_usage_count.txt only
-set -euo pipefail
 
 # --- Configuration ---
 MAX_FREE_USES=100
