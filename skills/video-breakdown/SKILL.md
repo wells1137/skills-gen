@@ -1,14 +1,14 @@
 ---
-name: video-analyst
+name: video-breakdown
 version: 1.0.0
 author: "@wells1137"
-tags: ["video", "analysis", "quality", "shot-by-shot", "拉片"]
+tags: ["video", "breakdown", "analysis", "critique", "shot-by-shot", "拉片"]
 
 ---
 
-# Video Analyst
+# Video Breakdown
 
-An advanced video analysis skill that provides both high-level quality assessment and detailed shot-by-shot breakdowns (拉片). It helps content creators, editors, and marketers to objectively evaluate video quality and deconstruct narrative structures.
+An advanced video analysis skill that provides both high-level quality assessment and detailed shot-by-shot breakdowns. It helps content creators, editors, and marketers to objectively evaluate video quality and deconstruct narrative structures. It helps content creators, editors, and marketers to objectively evaluate video quality and deconstruct narrative structures.
 
 This skill is powered by a custom backend service that leverages state-of-the-art video understanding models from fal.ai.
 
@@ -16,8 +16,8 @@ This skill is powered by a custom backend service that leverages state-of-the-ar
 
 | Capability | Description | Use Case |
 | :--- | :--- | :--- |
-| **Quality Assessment** | Provides a quantitative score (1-10) and qualitative comments for key technical aspects of a video. | Quickly evaluate if user-generated content meets quality standards; compare different versions of a video. |
-| **Shot-by-Shot Analysis** | Delivers a detailed breakdown of each shot, including timestamps, visual descriptions, and camera work. | Deeply analyze a competitor's video; deconstruct a film scene for educational purposes; create a highlight reel script. |
+| **Quality Critique** | Provides a quantitative score (1-10) and qualitative comments for key technical aspects of a video. | Quickly evaluate if user-generated content meets quality standards; compare different versions of a video. |
+| **Shot Breakdown** | Delivers a detailed breakdown of each shot, including timestamps, visual descriptions, and camera work. | Deeply analyze a competitor's video; deconstruct a film scene for educational purposes; create a highlight reel script. |
 
 ## How It Works
 
@@ -41,10 +41,10 @@ This skill acts as a client to a dedicated backend service. The agent submits a 
 
 ```json
 {
-  "tool": "video-analyst.analyze",
+  "tool": "video-breakdown.analyze",
   "args": {
     "video_url": "https://example.com/my-video.mp4",
-    "analysis_type": "quality_assessment"
+    "analysis_type": "quality_critique"
   }
 }
 ```
@@ -80,10 +80,10 @@ This skill acts as a client to a dedicated backend service. The agent submits a 
 
 ```json
 {
-  "tool": "video-analyst.analyze",
+  "tool": "video-breakdown.analyze",
   "args": {
     "video_url": "https://example.com/scene.mp4",
-    "analysis_type": "shot_by_shot_analysis"
+    "analysis_type": "shot_breakdown"
   }
 }
 ```
