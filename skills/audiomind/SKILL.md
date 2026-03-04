@@ -175,6 +175,56 @@ Get your key at [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys).
 
 ---
 
+## Self-Hosting the Proxy
+
+The `cli.js` connects to a hosted proxy by default. If you want full control — or need to serve users in regions where `vercel.app` is blocked — you can deploy your own instance from the `proxy/` directory.
+
+### Quick Deploy (Vercel)
+
+```bash
+cd proxy
+npm install
+vercel --prod
+```
+
+### Environment Variables
+
+Set these in your Vercel project (Dashboard → Settings → Environment Variables):
+
+| Variable | Required For | Where to Get |
+|---|---|---|
+| `ELEVENLABS_API_KEY` | TTS, SFX, Voice Clone | [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) |
+| `FAL_KEY` | Music generation | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) |
+| `VALID_PRO_KEYS` | (Optional) Restrict access | Comma-separated list of allowed client keys |
+
+### Point cli.js to Your Proxy
+
+```bash
+export AUDIOMIND_PROXY_URL="https://your-domain.com/api/audio"
+```
+
+Or set it in `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "skills": {
+    "entries": {
+      "audiomind": {
+        "env": {
+          "AUDIOMIND_PROXY_URL": "https://your-domain.com/api/audio"
+        }
+      }
+    }
+  }
+}
+```
+
+### Custom Domain (Recommended)
+
+If your users are in mainland China, bind a custom domain in Vercel Dashboard → Settings → Domains to avoid DNS issues with `vercel.app`.
+
+---
+
 ## Model Reference
 
 | Model ID | Type | Provider | Notes |
